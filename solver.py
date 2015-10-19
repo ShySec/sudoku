@@ -18,7 +18,7 @@ def read_board(filename, analyze=True, debug=False):
 			if not line: continue
 			fixed = re.sub('[ _-]','0',line)
 			row = map(lambda x:int(ord(x)-ord('0')),fixed)
-			if debug: print '%s -> %s -> %s'%(line,fixed,row)
+			logging.debug('%s -> %s -> %s',line,fixed,row)
 			layout.append(row)
 	board = dict(layout=layout)
 	if analyze: board = analyze_board(board,debug)
@@ -172,6 +172,7 @@ def stringify_board(board, analysis=True):
 	if analysis:
 		mapping=dict()
 		letters=board_keys()
+	keys = list()
 	for rnum,rdata in enumerate(layout):
 		for cnum,cdata in enumerate(rdata):
 			if cdata:
@@ -179,6 +180,7 @@ def stringify_board(board, analysis=True):
 			elif analysis:
 				key = letters.next()
 				mapping[key] = board['analysis'][rnum][cnum]
+				keys.append(key)
 				rval += key
 			else:
 				rval += ' '
@@ -187,9 +189,9 @@ def stringify_board(board, analysis=True):
 		rval += '\n'
 		if bordered(rnum,border,width):
 			rval += '-'*(width+border-1) + '\n'
-	if analysis and len(mapping):
+	if analysis and len(keys):
 		rval += '\n'
-		for key in mapping:
+		for key in keys:
 			rval += '%s %s\n'%(key,sorted(list(mapping[key])))
 
 	return rval
@@ -213,8 +215,8 @@ def square_index(board, row, column):
 	return square
 
 def report(data):
-	if gPrefix: print '%s %s'%(gPrefix,data)
-	else: print data
+	if gPrefix: logging.debug('%s %s',gPrefix,data)
+	else: logging.debug('%s',data)
 
 def solve_board(board, brute=True, save_state=True, debug=False):
 	while board['missing']:
@@ -297,22 +299,22 @@ def solve_board_step_last_in_square(board, debug=False):
 					return update
 
 def solve_board_step_random(board, debug=False):
+	global gPrefix
 	layout,width = board['layout'],len(board['layout'])
-	if debug: print '\n%s'%stringify_board(board,False)
+	logging.debug(stringify_board(board,False))
 	for row in xrange(width):
 		for col in xrange(width):
 			if layout[row][col] != 0: continue
 			values = sorted(list(board['analysis'][row][col]))
 			for value in values:
-				if debug: print 'brute forcing %d,%d=%s => %d'%(row,col,values,value)
-				global gPrefix
+				report('brute forcing %d,%d=%s => %d'%(row,col,values,value))
 				gPrefix += '-'
 				bruting_board = copy.deepcopy(board)
 				bruting_board = update_board(bruting_board,row,col,value)
 				try:
 					bruting_board = solve_board(bruting_board, debug=debug)
 				except:
-					if debug: print 'brute forcing failed; unwinding'
+					logging.error('brute forcing failed; unwinding')
 					bruting_board = None
 				gPrefix = gPrefix[:-1]
 				if bruting_board: return bruting_board
@@ -331,6 +333,7 @@ if __name__ == '__main__':
 		sys.stderr.write('usage: %s <filename>\n'%(sys.argv[0],))
 		sys.stderr.flush()
 		sys.exit(0)
+	logging.basicConfig(level=logging.DEBUG)
 	board = read_board(sys.argv[1])
 	print stringify_board(board)
 	board = solve_board(board,brute=True,debug=True)
